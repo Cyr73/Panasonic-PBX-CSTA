@@ -1,0 +1,826 @@
+-- ver 0.3 (C)Cyr
+CSTAapdu ::= CHOICE {
+    svcRequest      ROIVapdu,
+    svcResult       RORSapdu,
+	svcError        ROERapdu
+--  svcReject       RORJapdu
+}
+ROIVapdu ::= [1] IMPLICIT SEQUENCE {
+	invokeID	  INTEGER,  
+	serviceID	  INTEGER, 
+	serviceArgs	  ANY DEFINED BY serviceID 
+}
+RORSapdu ::= [2] IMPLICIT SEQUENCE {
+	invokeID	  INTEGER,     
+	result            SEQUENCE {
+		serviceID	  INTEGER,
+		serviceResult ANY DEFINED BY serviceID OPTIONAL
+	}
+}
+ROERapdu ::= [3] IMPLICIT SEQUENCE {
+	invokeID	 INTEGER,      
+	code		 INTEGER, -- local:1   
+	parameter 	 UniversalFailure
+}
+UniversalFailure ::= CHOICE
+{	operation			 	 	[0] EXPLICIT OperationErrors,
+	stateIncompatibility       	[2] EXPLICIT StateIncompatibilityErrors,
+	systemResourceAvailability 	[3] EXPLICIT SystemResourceAvailabilityErrors,
+	unspecified                	[7] UnspecifiedErrors
+}
+OperationErrors ::= ENUMERATED
+{	invalidAgentGroup			(32),
+	invalidAgentState			(35),
+	invalidCalledDeviceID		(6),
+	invalidConnectionID			(13),
+	invalidDeviceID				(12),
+	invalidParameterValue		(31),
+	notSameDevice				(86),
+	privilegeViolationSpecifiedDevice (8),
+	requestIncompatibleWithObject (2),
+	serviceNotSupported			(50)
+}
+StateIncompatibilityErrors ::= ENUMERATED
+{
+	invalidObjectState				(2)
+}
+SystemResourceAvailabilityErrors ::= ENUMERATED
+{
+	deviceOutOfService			(15),
+	resourceBusy				(2),
+	resourceLimitExceeded		(26),
+	resourceOutOfService		(4)
+}
+UnspecifiedErrors ::= NULL
+	
+systemStatus ::= CHOICE
+{	ARGUMENT SystemStatusArg,
+	RESULT 	 SystemStatusRes
+--	ERRORS 	{universalFailure}
+--	CODE	local: 211	
+}
+SystemStatusArg ::= SEQUENCE
+{	systemStatus	SystemStatus}
+
+SystemStatusRes ::= CHOICE 
+{	noData	 NULL}
+
+SystemStatus ::= ENUMERATED
+{   normal               (2),
+    messageLost          (3),
+    overloadReached      (6)
+}
+monitorStart ::= CHOICE
+{	ARGUMENT	MonitorStartArgument,
+    RESULT     	MonitorStartResult
+--  ERRORS     	{universalFailure}
+--	CODE	local: 71
+}
+
+MonitorStartArgument ::= SEQUENCE
+{	monitorObject               MonitorObject,
+	requestedMonitorFilter		[0] IMPLICIT MonitorFilter	OPTIONAL
+}
+
+MonitorStartResult ::= SEQUENCE
+{	crossRefIdentifier 			MonitorCrossRefID,
+	actualmonitorFilter			[0] IMPLICIT MonitorFilter	OPTIONAL
+}
+
+MonitorObject ::= CSTAObject
+
+CSTAObject ::= CHOICE
+{	deviceObject   DeviceID,
+    callObject     ConnectionID}
+
+MonitorFilter ::= SEQUENCE	-- default is no filter (i.e. all events)
+{	callControl				[0] IMPLICIT CallControlEvents			OPTIONAL,
+--	callAssociated			[6] IMPLICIT CallAssociatedEvents		OPTIONAL,
+	physicalDeviceFeature	[8] IMPLICIT PhysicalDeviceFeatureEvents OPTIONAL,
+	logicalDeviceFeature	[9] IMPLICIT LogicalDeviceFeatureEvents OPTIONAL,
+--	maintenance				[3] IMPLICIT DeviceMaintenanceEvents	OPTIONAL,
+	private					[4] IMPLICIT VendorSpecEvents			OPTIONAL
+}
+
+cSTAEventReport	::= CHOICE
+{	ARGUMENT	CSTAEventReportArgument
+--	ALWAYS 		RESPONDS		FALSE
+--	CODE		local:21
+}	
+CSTAEventReportArgument ::= SEQUENCE
+{	crossRefIdentifier		MonitorCrossRefID,
+	eventSpecificInfo		EventSpecificInfo}
+	
+EventSpecificInfo ::= CHOICE
+{	callControlEvents			[0] CallControlEvents,
+--	callAssociatedEvents		[1] CallAssociatedEvents,
+--	mediaAttachmentEvents		[2] MediaAttachmentEvents,
+ 	physicalDeviceFeatureEvents	[3] PhysicalDeviceFeatureEvents,
+	logicalDeviceFeatureEvents	[4] LogicalDeviceFeatureEvents,
+--	deviceMaintenanceEvents		[5] DeviceMaintenanceEvents,
+--	voiceUnitEvents				[6] VoiceUnitEvents,
+	vendorSpecEvents			[7] VendorSpecEvents
+}
+CallControlEvents ::= CHOICE
+{
+	conferenced 				[ 2] IMPLICIT ConferencedEvent,
+	connectionCleared 			[ 3] IMPLICIT ConnectionClearedEvent,
+	delivered 					[ 4] IMPLICIT DeliveredEvent,
+--	digitsDialed 				[ 5] IMPLICIT DigitsDialedEvent,
+	diverted 					[ 6] IMPLICIT DivertedEvent,
+ 	established                 [ 7] IMPLICIT EstablishedEvent,
+ 	failed                     	[ 8] IMPLICIT FailedEvent,
+	held                 		[ 9] IMPLICIT HeldEvent,
+	networkReached 				[11] IMPLICIT NetworkReachedEvent,
+	originated 					[13] IMPLICIT OriginatedEvent,
+	queued 						[14] IMPLICIT QueuedEvent,
+	retrieved 					[15] IMPLICIT RetrievedEvent,
+	serviceInitiated 			[16] IMPLICIT ServiceInitiatedEvent,
+ 	transferred 				[17] IMPLICIT TransferredEvent
+}
+ConferencedEvent ::= SEQUENCE
+{ 	primaryOldCall 			ConnectionID,
+	secondaryOldCall 		ConnectionID 				OPTIONAL,
+	conferencingDevice 		SubjectDeviceID,
+	addedParty 				SubjectDeviceID,
+	conferenceConnections 	ConnectionList,
+	localConnectionInfo 	LocalConnectionState 		OPTIONAL,
+	cause 					EventCause
+--	extensions 				[5] IMPLICIT CSTACommonArguments OPTIONAL 
+}
+ConnectionClearedEvent ::=  SEQUENCE
+{	droppedConnection       ConnectionID,
+	releasingDevice         SubjectDeviceID,
+	localConnectionInfo     LocalConnectionState         OPTIONAL,
+	cause                   EventCause
+--	extensions              CSTACommonArguments          OPTIONAL
+}
+DeliveredEvent ::=   SEQUENCE
+{   connection              ConnectionID,
+    alertingDevice          SubjectDeviceID,
+    callingDevice           CallingDeviceID,
+    calledDevice            CalledDeviceID,
+    lastRedirectionDevice   RedirectionDeviceID,
+    localConnectionInfo     LocalConnectionState          OPTIONAL,
+    cause                   EventCause,
+    networkCallingDevice    NetworkCallingDeviceID        OPTIONAL,
+    networkCalledDevice     NetworkCalledDeviceID         OPTIONAL,
+    associatedCallingDevice AssociatedCallingDeviceID     OPTIONAL,
+    associatedCalledDevice  AssociatedCalledDeviceID      OPTIONAL,
+    extensions              CSTACommonArguments           OPTIONAL
+}
+DivertedEvent ::= SEQUENCE
+{ 	connection 				ConnectionID,
+	divertingDevice 		SubjectDeviceID,
+	newDestination 			SubjectDeviceID,
+	callingDevice 			CallingDeviceID 				OPTIONAL,
+	calledDevice 			CalledDeviceID 					OPTIONAL,
+	lastRedirectionDevice 	RedirectionDeviceID,
+	localConnectionInfo 	LocalConnectionState 			OPTIONAL,
+	cause 					EventCause,
+	networkCallingDevice 	NetworkCallingDeviceID 			OPTIONAL,
+	networkCalledDevice 	NetworkCalledDeviceID 			OPTIONAL,
+	associatedCallingDevice AssociatedCallingDeviceID 		OPTIONAL,
+	associatedCalledDevice 	AssociatedCalledDeviceID 		OPTIONAL
+}
+EstablishedEvent ::=   SEQUENCE        
+{   establishedConnection   ConnectionID,
+    answeringDevice         SubjectDeviceID,
+    callingDevice           CallingDeviceID,
+    calledDevice            CalledDeviceID,
+    lastRedirectionDevice   RedirectionDeviceID,
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause,
+    networkCallingDevice    NetworkCallingDeviceID          OPTIONAL,
+    networkCalledDevice     NetworkCalledDeviceID           OPTIONAL,
+    associatedCallingDevice AssociatedCallingDeviceID       OPTIONAL,
+    associatedCalledDevice  AssociatedCalledDeviceID        OPTIONAL, 
+    extensions              CSTACommonArguments             OPTIONAL
+}
+FailedEvent ::= SEQUENCE
+{   failedConnection        ConnectionID,
+    failingDevice           SubjectDeviceID,
+    callingDevice           CallingDeviceID,
+    calledDevice            CalledDeviceID,
+    lastRedirectionDevice   RedirectionDeviceID,
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause,
+    networkCallingDevice    NetworkCallingDeviceID          OPTIONAL,
+    networkCalledDevice     NetworkCalledDeviceID           OPTIONAL,
+    associatedCallingDevice AssociatedCallingDeviceID       OPTIONAL,
+    associatedCalledDevice  AssociatedCalledDeviceID        OPTIONAL 
+}
+HeldEvent ::=   SEQUENCE
+{   heldConnection          ConnectionID,
+    holdingDevice           SubjectDeviceID,        
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause,
+    extensions              CSTACommonArguments             OPTIONAL
+}
+NetworkReachedEvent ::=  SEQUENCE
+{   outboundConnection      ConnectionID,
+    networkInterfaceUsed    SubjectDeviceID,
+    callingDevice           CallingDeviceID,
+    calledDevice            CalledDeviceID,
+    lastRedirectionDevice   RedirectionDeviceID,
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause 
+--  networkCallingDevice    NetworkCallingDeviceID          OPTIONAL,
+--  networkCalledDevice     NetworkCalledDeviceID           OPTIONAL,
+--  associatedCallingDevice AssociatedCallingDeviceID       OPTIONAL
+--  extensions              CSTACommonArguments             OPTIONAL
+}
+OriginatedEvent ::= SEQUENCE
+{	originatedConnection	ConnectionID,
+	callingDevice			SubjectDeviceID,
+	calledDevice			CalledDeviceID,
+	localConnectionInfo		LocalConnectionState			OPTIONAL,
+	cause					EventCause,
+    networkCallingDevice	NetworkCallingDeviceID			OPTIONAL,
+  	networkCalledDevice		NetworkCalledDeviceID			OPTIONAL,
+  	associatedCallingDevice AssociatedCallingDeviceID  		OPTIONAL,
+ 	associatedCalledDevice 	AssociatedCalledDeviceID  		OPTIONAL,
+	extensions 				CSTACommonArguments 			OPTIONAL
+}
+QueuedEvent ::= SEQUENCE
+{	queuedConnection		ConnectionID,
+	queue					SubjectDeviceID,
+	callingDevice			CallingDeviceID,
+	calledDevice			CalledDeviceID,
+	lastRedirectionDevice	RedirectionDeviceID,
+	callsInFront			[1] IMPLICIT INTEGER			OPTIONAL,
+	localConnectionInfo		LocalConnectionState			OPTIONAL,
+	cause					EventCause,
+	networkCallingDevice	NetworkCallingDeviceID			OPTIONAL,
+	networkCalledDevice		NetworkCalledDeviceID			OPTIONAL,
+	associatedCallingDevice	AssociatedCallingDeviceID		OPTIONAL,
+	associatedCalledDevice	AssociatedCalledDeviceID		OPTIONAL
+}
+RetrievedEvent ::= SEQUENCE
+{	retrievedConnection		ConnectionID,
+	retrievingDevice		SubjectDeviceID,
+	localConnectionInfo		LocalConnectionState			OPTIONAL,
+	cause					EventCause
+}
+ServiceInitiatedEvent ::=  SEQUENCE
+{   initiatedConnection     ConnectionID,
+    initiatingDevice        SubjectDeviceID,
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause,
+    networkCallingDevice    NetworkCallingDeviceID          OPTIONAL,
+    networkCalledDevice     NetworkCalledDeviceID           OPTIONAL,
+--  associatedCallingDevice AssociatedCallingDeviceID       OPTIONAL
+    extensions              CSTACommonArguments             OPTIONAL
+}
+TransferredEvent ::= SEQUENCE
+{   primaryOldCall          ConnectionID,
+    secondaryOldCall        [0] IMPLICIT ConnectionID       OPTIONAL,
+    transferringDevice      SubjectDeviceID,
+    transferredToDevice     SubjectDeviceID,
+    transferredConnections  [1] IMPLICIT ConnectionList,
+    localConnectionInfo     LocalConnectionState            OPTIONAL,
+    cause                   EventCause
+--  extensions              CSTACommonArguments             OPTIONAL
+}
+PhysicalDeviceFeatureEvents ::= CHOICE
+{	
+--	buttonInformation 		[ 0] IMPLICIT ButtonInformationEvent,
+	buttonPress				[ 1] IMPLICIT ButtonPressEvent,
+--	displayUpdated			[ 2] IMPLICIT DisplayUpdatedEvent,
+--	hookswitch				[ 3] IMPLICIT HookswitchEvent,
+--	lampMode				[ 4] IMPLICIT LampModeEvent,
+--	messageWaiting			[ 5] IMPLICIT MessageWaitingEvent,
+--	microphoneGain			[ 6] IMPLICIT MicrophoneGainEvent,
+--	microphoneMute			[ 7] IMPLICIT MicrophoneMuteEvent,
+ 	ringerStatus			[ 8] IMPLICIT RingerStatusEvent
+--	speakerMute				[ 9] IMPLICIT SpeakerMuteEvent,
+--	speakerVolume			[10] IMPLICIT SpeakerVolumeEvent 
+}
+ButtonPressEvent ::= SEQUENCE
+{	device				SubjectDeviceID,
+	button				ButtonID,
+	buttonLabel			IA5String 			OPTIONAL,
+	buttonAssociatedNumber DeviceID			OPTIONAL,
+	extensions			CSTACommonArguments	OPTIONAL }
+
+ButtonID ::= OCTET STRING
+
+RingerStatusEvent ::= SEQUENCE
+{	device				SubjectDeviceID,
+	ringer 				RingerID,
+	ringMode	 		RingMode				OPTIONAL,
+	extensions			CSTACommonArguments		OPTIONAL 
+}
+
+RingerID ::= OCTET STRING
+
+RingMode ::= ENUMERATED
+{ 	ringing 				(0),
+	notRinging 				(1) 
+}
+	
+LogicalDeviceFeatureEvents ::= CHOICE
+{	agentBusy				[ 0] IMPLICIT AgentBusyEvent,
+--	agentLoggedOn			[ 1] IMPLICIT AgentLoggedOnEvent,
+--	agentLoggedOff			[ 2] IMPLICIT AgentLoggedOffEvent,
+--	agentNotReady			[ 3] IMPLICIT AgentNotReadyEvent,
+	agentReady				[ 4] IMPLICIT AgentReadyEvent
+--	agentWorkingAfterCall	[ 5] IMPLICIT AgentWorkingAfterCallEvent,
+--	autoAnswer				[ 6] IMPLICIT AutoAnswerEvent,
+--	autoWorkMode			[ 7] IMPLICIT AutoWorkModeEvent,
+--	callBack				[ 8] IMPLICIT CallBackEvent,
+--	callBackMessage			[ 9] IMPLICIT CallBackMessageEvent,
+--	callerIDStatus			[10] IMPLICIT CallerIDStatusEvent,
+--	doNotDisturb			[11] IMPLICIT DoNotDisturbEvent,
+--	forwarding				[12] IMPLICIT ForwardingEvent,
+--	presenceState			[14] IMPLICIT PresenceStateEvent,
+--	routeingMode			[13] IMPLICIT RouteingModeEvent 
+}
+AgentBusyEvent ::= SEQUENCE
+{	agentDevice 		SubjectDeviceID
+}
+
+AgentReadyEvent ::= SEQUENCE
+{	agentDevice 		SubjectDeviceID
+}
+VendorSpecEvents::= CHOICE
+{	privateEvent	[ 0] IMPLICIT PrivateEvent}	
+
+PrivateEvent ::= SEQUENCE
+{-- security CSTASecurityData OPTIONAL,
+privateData CSTAPrivateData }
+
+ConnectionID ::= [APPLICATION 11] CHOICE
+{
+	deviceID	[1]	LocalDeviceID,
+	both	SEQUENCE
+	{	callID 	[0] IMPLICIT CallID,
+		deviceID [1] LocalDeviceID
+	}
+}
+
+CallID ::= OCTET STRING 
+
+LocalDeviceID ::= CHOICE
+{   staticID        DeviceID
+}
+
+ConnectionList ::= SEQUENCE OF SEQUENCE
+	{	newConnection [0] EXPLICIT ConnectionID	OPTIONAL,   --! добавлен EXPLICIT
+		associatedNID [3] associatedNID_		OPTIONAL	--! CHOICE вынесен отдельно
+	}
+associatedNID_	::= CHOICE 
+	{	deviceID	DeviceID 
+	}	
+
+LocalConnectionState ::= [APPLICATION 14] IMPLICIT ENUMERATED
+{	null		(0),
+	initiated	(1),
+	alerting	(2),
+	connected	(3),
+	hold		(4),
+	queued		(5),
+	fail		(6)
+}
+		
+CallingDeviceID	::= [APPLICATION 1] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+CalledDeviceID ::= [APPLICATION 2] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+SubjectDeviceID ::= [APPLICATION 3] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+RedirectionDeviceID ::= [APPLICATION 4] CHOICE
+	{numberdialed		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL,
+	 notRequired	[8] IMPLICIT		NULL,
+	 notSpecified	[9] IMPLICIT		NULL}
+	 
+AssociatedCallingDeviceID ::= [APPLICATION 5] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+AssociatedCalledDeviceID ::= [APPLICATION 6] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+NetworkCallingDeviceID	::= [APPLICATION 7] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+
+NetworkCalledDeviceID ::= [APPLICATION 8] CHOICE
+	{deviceIdentifier		DeviceID,
+	 notKnown		[7] IMPLICIT		NULL}
+	 
+DeviceID ::= SEQUENCE 
+{	deviceIdentifier		CHOICE
+  { dialingNumber		[0] IMPLICIT	NumberDigits,
+	deviceNumber		[1] IMPLICIT	DeviceNumber,
+	other				[6] IMPLICIT	OtherPlan
+  }
+}
+OtherPlan ::= OCTET STRING			-- Allows future expansion to cover other numbering plans
+ 	
+NumberDigits ::= IA5String
+
+DeviceNumber ::= INTEGER
+
+MonitorCrossRefID ::= [APPLICATION 21] INTEGER
+
+CSTACommonArguments ::= [APPLICATION 30] IMPLICIT SEQUENCE
+{   privateData   [1] IMPLICIT SEQUENCE OF CSTAPrivateData    OPTIONAL }
+
+CSTAPrivateData ::= CHOICE 
+{	string OCTET STRING,
+	private	KmeSpecificPrivateData
+}	-- The actual encoding is added here,
+
+KmeSpecificPrivateData ::= CHOICE
+{
+--	kmeCallControl  [1] KmeCallControlSrvEvt,
+--	kmeDeviceStatus [2] KmeDeviceStatus,
+--	kmeDeviceMonitor [3] KmeDeviceMonitor,
+ 	kmeSystemData  	[4] KmeSystemData,
+--	kmeLocalAlerm  	[5] KmeLocalAlerm,
+	kmeAdditionalData [6] KmeAdditionalData,
+	kmePrivateEvent [7] KmePrivateEvent,
+	kmeResourceControl [8] KmeResourceControl
+--	kmeGeneric 		[9] KmeGenericSrvEvt,
+--  kmeExtendedDataAccess [10] OCTET STRING
+--	kmePDFControl 	[11] KmePDFSrvEvt, 		-- Ver2.0
+--	kmeAlterIf 		[12] KmeAlterIfSrvEvt,	-- TDA600
+--	kmeHotelControl [13] KmeHotelSrvEvt 	-- TDA600 v4.0
+}
+KmeAdditionalData ::= CHOICE
+{
+--	fowardType 		[1] KmeForwardType, 	-- SetForwarding
+--	trunkId 		[2] KmeTrunkId, 		-- Not Used.
+--	otherDevice 	[3] KmeOtherDevice, 	-- GetSwitchingFunctionDevices
+--	vmRecExtNo 		[4] IA5String, 			-- ConsultationCall
+--	deviceCategory 	[5] KmeChangedDeviceCategory, -- SwitchingFunctionDevice Changed
+ 	device 			[6] EXPLICIT DeviceID, 	-- GetAutoWorkMode-Request, SetAutoWorkMode-Request
+--	featureNumber 	[7] KmeFeatureNumber, 	-- AnswerCall-Request, Delivered-Event
+--	proprietaryContents [8] KmeProprietaryChars, -- Set Display
+	holdType 	   	[9]  EXPLICIT KmeHoldType, -- Held Event
+--	conditionCode 	[10] KmeCdrConditionCode, -- Call Detail Records Report
+--	lockDisplay 	[11] BOOLEAN, 			-- SetDisplay
+--	forcedAlerting 	[12] KmeForcedAlerting, -- DeflectCall
+	callID 			[13] EXPLICIT CallID, 	-- RingStatus
+--	ogmContinuation [14] BOOLEAN, 			-- DeflectCall
+--	broadcastGroupNo [15] INTEGER, 			-- SInit,Orig,Delivered,Established
+--	ringPattern 	[16] INTEGER, 			-- DeflectCall V2.0
+ 	didNo 			[17] EXPLICIT DeviceID  -- Delivered V2.0
+--	confGroupNo 	[18] INTEGER 			-- SInit,Orig,Deliv,Estab,Trans-Evt
+}
+KmeHoldType ::= ENUMERATED
+{ 	consultation (0),
+	normal 		(1),
+	exclusive 	(2)
+}
+
+escape ::= CHOICE
+{ 	ARGUMENT EscapeArgument,
+	RESULT	 EscapeResult
+--  ERRORS {universalFailure}
+--	CODE local: 51
+}
+
+EscapeArgument ::= SEQUENCE
+{ --escapeRegisterID EscapeRegisterID OPTIONAL,
+	--security 		 CSTASecurityData OPTIONAL,
+	privateData		 CSTAPrivateData }
+
+EscapeResult ::= CHOICE
+{ extensions CSTACommonArguments,
+	noData NULL
+}
+
+KmeSystemData ::= CHOICE
+{ getSystemData 		[0] KmeGetSystemData,--!
+  setSystemData 		[1] KmeSetSystemData,
+--systemDataChanged 	[2] KmeSystemDataChanged,
+  systemDataLinkedReply [3] EXPLICIT KmeSystemDataLinkedReply,
+  getSystemDataPosAck 	[4] EXPLICIT KmeGetSystemDataPosAck
+--lockSystemData 		[5] KmeLockSystemData, -- 2002/05/17
+--systemDataStatus 		[6] KmeSystemDataStatus, -- 2002/05/17
+--dataRevisionRecord 	[7] KmeSystemDataRevision, -- 2002/12/19
+--getDataRevisionRecord [8] KmeGetSystemDataRevision, -- V2.0
+--setprogrammingEventOn [9] KmeSetProgrammingEventOn -- V2.0
+}
+KmeGetSystemData ::= CHOICE
+{ request KmeGetSystemDataReq 		--!
+--result KmeGetSystemDataRsp
+}
+KmeGetSystemDataReq ::= CHOICE
+{ systemData [0] EXPLICIT ENUMERATED
+   {sysTimeStamp 	(0),
+	devTimeStamp 	(1), -- Not used
+	featureList 	(2),
+	speedDial 		(3), -- Not used
+	trunkGroup 		(4),
+	extensionGroup 	(5),
+	pickupGroup 	(6),
+	pagingGroup 	(7),
+	incomingGroup 	(8),
+	dayNightMode 	(9),
+	doorPhone 		(10),
+	vmGroup 		(11),
+	manufacturerName (12), -- 3rd Party
+	subdomainName 	(13), -- 3rd Party
+	softwareVersion (14), -- 3rd Party
+	ctiVersion 		(15), -- 3rd Party
+	regionCode 		(16), -- 3rd Party
+	systemTime 		(17), -- 3rd Party
+	numberOfMsgPort (18), -- 3rd Party
+	psGroup 		(19), -- 3rd Party
+	whoAmI 			(20), -- V1.1
+	broadcastGroup 	(21), -- V1.1
+	pbxType 		(22), -- V2.0
+	externalSensor 	(23), -- V2.0
+	svm 			(24), -- TDA30 V2.2
+	pdn 			(25)}, -- TDA600 V3.1
+  incomGMember [3] IMPLICIT SEQUENCE
+	{groupNo DeviceID },
+  deviceList   [4] KmeRequestedDevice 	--!
+}
+KmeRequestedDevice ::= CHOICE -- for GetSystemData.deviceList
+{ --device [0] DeviceID,
+  category [1] KmeDeviceCategory} 	--!
+  
+KmeDeviceCategory ::= CHOICE
+{ standardDevice [0] EXPLICIT DeviceCategory--!
+ -- kmeDevice [1] KmeOtherDevice
+}   
+DeviceCategory ::= ENUMERATED
+{	acd				(0),
+	group			(1),
+	networkInterface (2),		--!
+	park			(3),
+	routeingDevice	(4),
+	station			(5), 		--!
+	voiceUnit		(6),
+	other			(7)
+}
+KmeSystemDataLinkedReply ::= SEQUENCE
+{ crossRefID  [0] EXPLICIT ServiceCrossRefID, -- 01/12/17
+  segmentID   [1] EXPLICIT INTEGER,
+  lastSegment [2] EXPLICIT BOOLEAN,
+  sysData     [3] EXPLICIT KmeGetSystemDataRsp OPTIONAL -- 02/04/22
+}
+ServiceCrossRefID ::= OCTET STRING
+
+KmeGetSystemDataPosAck ::= ServiceCrossRefID -- Cross Reference Identifier01/12/17
+
+KmeGetSystemDataRsp ::= SEQUENCE
+{ -- Whole system data
+--timeStamp 		[0] KmeTimeStamp OPTIONAL, -- PCC
+--featureList 		[1] KmeFeatureList OPTIONAL, -- PCC
+--speedDial 		[2] KmeSpeedDial OPTIONAL, -- PCC
+--trunkGroup 		[3] KmeExtTrkGroupList OPTIONAL, -- PCC
+--extGroup 			[4] KmeExtTrkGroupList OPTIONAL, -- PCC
+--pickGroup 		[5] KmePckPagGroupList OPTIONAL, -- PCC
+--pagingGroup 		[6] KmePckPagGroupList OPTIONAL, -- PCC
+--incomingGroup 	[7] KmeIncomingGroupList OPTIONAL, -- PCC
+--dayNightMode 		[8] KmeDayNightMode OPTIONAL, -- PCC
+--wakeUp 			[9] KmeWakeUpInfo OPTIONAL, -- PCC
+--remoteLock 		[10] KmeDeviceLock OPTIONAL, -- PCC
+--callLogLock 		[11] KmeDeviceLock OPTIONAL, -- PCC
+--absentMessage 	[12] KmeAbsentMessage OPTIONAL, -- PCC
+--forwardDnd 		[13] ForwardList OPTIONAL, -- PCC
+--trkGMembers 		[14] KmeTrkMembers OPTIONAL, -- PCC
+--extGMembers 		[15] KmeExtMembers OPTIONAL, -- PCC
+--incomGMembers 	[16] KmeIcmGrpMembers OPTIONAL, -- PCC
+--doorPhone 		[17] KmeDoorPhone OPTIONAL, -- PCC
+--vmGroup 			[18] KmeVmGroupList OPTIONAL, -- PCC
+  manufacturerName 	[19] IA5String OPTIONAL, -- 3rd Party
+  subdomainName 	[20] IA5String OPTIONAL, -- 3rd Party
+  softwareVersion 	[21] IA5String OPTIONAL, -- 3rd Party
+  ctiVersion 		[22] IA5String OPTIONAL, -- 3rd Party
+  regionCode 		[23] IA5String OPTIONAL, -- 3rd Party
+  systemTime		[24] GeneralizedTime OPTIONAL, -- 3rd Party
+  numberOfMsgPort 	[25] EXPLICIT NumberOfMsgPort OPTIONAL, -- 3rd Party
+--psGroup 			[26] KmePsGroupList OPTIONAL, -- 3rd Party
+--youAre 			[27] DeviceID OPTIONAL, -- V1.1
+--svm 				[28] KmeSvmList OPTIONAL, -- TDA30 V2.2
+--pdn 				[29] KmePdnGMembers OPTIONAL, -- TDA600 V3.1
+-- Each device data
+--cos 				[34] INTEGER OPTIONAL, -- 3rd Party
+--phoneProperty 	[35] KmePhoneProperty OPTIONAL, -- 3rd Party
+--assocIncomGroup 	[36] KmeGroupMembers OPTIONAL, -- 3rd Party
+--messageWaiting 	[37] SEQUENCE OF DeviceID OPTIONAL, -- 3rd Party
+  deviceList 		[38] EXPLICIT KmeDeviceStateList OPTIONAL, -- 3rd Party
+--assocExtGroup 	[39] INTEGER OPTIONAL, -- 01/12/17
+--vmGMembers 		[40] KmeIcmGrpMembers OPTIONAL, -- 02/05/20
+--extName 			[41] KmeExtName OPTIONAL, -- V1.1
+--broadcastGroup 	[42] KmeBroadcastGroupList OPTIONAL, -- V1.1
+--broadcastGMembers [43] KmeBroadcastGrpMembers OPTIONAL, -- V1.1
+--fcoKeyList 		[44] KmeFcoKeyList OPTIONAL, -- V2.0
+--sxdpMaster 		[45] DeviceID OPTIONAL, -- V2.0
+  pbxType 			[46] INTEGER OPTIONAL -- V2.0
+--externalSensor	[47] KmeExternalSensorList OPTIONAL, -- V2.0
+--deviceDataList	[48] KmeDeviceDataList OPTIONAL, -- TDA600
+--guestCheckStatus	[49] KmeCheckStatusList OPTIONAL -- TDA600 V4.0
+}
+NumberOfMsgPort ::= SEQUENCE
+{ 	numberOfMsgPort 	INTEGER,
+	numberOfFreePort 	INTEGER}
+
+KmeDeviceStateList ::= SEQUENCE OF KmeDeviceStateEntry
+
+KmeDeviceStateEntry ::= SEQUENCE
+{ device DeviceID,
+  number IA5String OPTIONAL, -- Ext No, CO No, Park Area No.
+  status KmeDeviceState 
+}
+KmeDeviceState ::= ENUMERATED
+{ ins (0),
+  ous (1)
+}
+KmePrivateEvent ::= CHOICE
+{--digitsReport   [1] KmeDigitsReport,
+	ogmStatus     [2] EXPLICIT KmeOgmStatus,
+--	wakeupResult  [3] KmeWakeupResult,
+--	unconferenced [4] KmeUnconferenced,
+--	tamEnded 	  [5] KmeTamEnded, -- 2002/04/26 05/17 mod.
+--	pcRecEnded    [6] KmePcRecEnded, -- 2002/05/17 Added.
+--	callbackNotification [7] CallBackNotification, -- 2002/05/28 Added
+	freeOgmPort  [8] KmeFreeOgmPort -- 2002/08/26 Added
+--	pDFStatus    [9] KmePDFStatus -- Ver2.0
+}
+KmeOgmStatus ::= SEQUENCE
+{ connection 	ConnectionID,
+  state 		KmeOgmPlayState,
+  ogmId 		INTEGER,
+  ogmPortNumber DeviceID}
+  
+KmeOgmPlayState ::= ENUMERATED
+{ started (0),
+  ended   (1)}
+  
+KmeFreeOgmPort ::= INTEGER
+
+KmeSetSystemData ::= CHOICE
+{acdQueue [3] EXPLICIT SEQUENCE 
+	{device DeviceID,
+	attribute CHOICE
+		{acdMode BOOLEAN,
+		ctiWaitTime INTEGER}
+	}
+}
+KmeResourceControl ::= CHOICE
+ { ogmStart [0] EXPLICIT KmeOgmStart,
+   ogmStop  [1] EXPLICIT KmeOgmStop}
+
+  KmeOgmStart ::= SEQUENCE
+{ connection ConnectionID,
+  ogmId INTEGER}
+
+KmeOgmStop ::= ConnectionID
+	
+EventCause ::= ENUMERATED
+-- a general list of cause codes
+--				Present in	Added in	Added in
+-- 				Version 1	Version 2	Version 3
+{	aCDBusy					(57),
+	aCDForward					(58),
+	aCDSaturated					(59),
+	activeParticipation			(1),
+	alertTimeExpired					(60),
+	alternate			(2),
+	autoWork					(61),
+	blocked				(35),
+	busy			(3),
+	callBack			(4),
+	callCancelled			(5),
+	callForward			(9),
+	callForwardImmediate			(6),
+	callForwardBusy			(7),
+	callForwardNoAnswer			(8),
+	callNotAnswered			(10),
+	callPickup			(11),
+	campOn			(12),
+	campOnTrunks					(62),
+	characterCountReached				(36),
+	conference					(63),
+	consultation				(37),
+	destDetected					(64),
+	destNotObtainable			(13),
+	destOutOfOrder					(65),
+	distributed				(38),
+	distributionDelay					(66),
+	doNotDisturb			(14),
+	dTMFDigitDetected				(39),
+	durationExceeded				(40),
+	endOfMessageDetected				(41),
+	enteringDistribution				(42),
+	forcedPause				(43),
+	forcedTransition					(67),
+	incompatibleDestination			(15),
+	intrude					(68),
+	invalidAccountCode			(16),
+	invalidNumberFormat					(69),
+	joinCall					(70),
+	keyOperation			(17),
+	keyOperationInUse					(71),
+	lockout			(18),
+	maintenance			(19),
+	makeCall				(44),
+	makePredictiveCall					(72),
+	messageDurationExceeded					(73),
+	messageSizeExceeded				(45),
+	multipleAlerting					(74),
+	multipleQueuing					(75),
+	networkCongestion			(20),
+	networkDialling					(76),
+	networkNotObtainable			(21),
+	networkOutOfOrder					(77),
+	networkSignal				(46),
+	newCall			(22),
+	nextMessage				(47),
+	noAvailableAgents			(23),
+	normal					(78),
+	normalClearing				(48),
+	noSpeechDetected				(49),
+	notAvaliableBearerService					(79),
+	notSupportedBearerService					(80),
+	numberChanged				(50),
+	numberUnallocated					(81),
+	overflow			(26),
+	override			(24),
+	park			(25),
+	queueCleared					(82),
+	recall			(27),
+	redirected			(28),
+	remainsInQueue					(83),
+	reorderTone			(29),
+	reserved					(84),
+	resourcesNotAvailable			(30),
+	selectedTrunkBusy					(85),
+	silentParticipation			(31),
+	singleStepConference				(51),
+	singleStepTransfer				(52),
+	speechDetected				(53),
+	suspend					(86),
+	switchingFunctionTerminated				(54), 
+	terminationCharacterReceived				(55), 
+	timeout				(56),
+	transfer			(32),
+	trunksBusy			(33),
+	unauthorisedBearerService					(87)}
+
+SnapshotDeviceArgument ::= 	SEQUENCE
+{	snapshotObject DeviceID}
+
+SnapshotDeviceResult   ::=	SEQUENCE
+{	crossRefIDorSnapshotData
+		CHOICE
+		{	serviceCrossRefID	ServiceCrossRefID,
+			snapshotData		SnapshotDeviceData
+		}
+}
+ServiceCrossRefID ::= OCTET STRING
+
+SnapshotDeviceData ::= [APPLICATION 22] IMPLICIT SEQUENCE OF SnapshotDeviceResponseInfo
+
+SnapshotDeviceResponseInfo ::= SEQUENCE
+{	connectionIdentifier	ConnectionID,
+	localCallState			CallState}
+
+CallState ::= CHOICE
+{	compoundCallState	[0] IMPLICIT CompoundCallState}
+
+CompoundCallState ::= SEQUENCE OF LocalConnectionState
+
+AnswerCallArgument ::= SEQUENCE			--CODE	local: 2
+{   callToBeAnswered        ConnectionID}
+
+ClearConnectionArgument ::= SEQUENCE	--CODE	local: 5
+{	connectionToBeCleared	ConnectionID}
+
+MakeCallArgument ::= SEQUENCE			--CODE	local: 10
+{	callingDevice			DeviceID,
+	calledDirectoryNumber	DeviceID
+}
+MakeCallResult ::= SEQUENCE	
+{	callingDevice		 	ConnectionID}
+
+HoldCallArgument ::= SEQUENCE			--CODE	local: 9
+{	callToBeHeld      		ConnectionID}	
+
+TransferCallArgument ::= SEQUENCE		--CODE	local: 16
+{	heldCall	ConnectionID,
+	activeCall	ConnectionID}
+
+TransferCallResult ::= 	SEQUENCE
+{	transferredCall	ConnectionID}
+
+ButtonPressArgument ::= SEQUENCE		--CODE	local: 260
+{	device		DeviceID,
+	button		ButtonID}
+	
+ButtonID ::= OCTET STRING
